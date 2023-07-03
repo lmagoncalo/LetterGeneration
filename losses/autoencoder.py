@@ -332,7 +332,7 @@ def resnet50_decoder(latent_dim, input_height, first_conv, maxpool1):
     return ResNetDecoder(DecoderBottleneck, [3, 4, 6, 3], latent_dim, input_height, first_conv, maxpool1)
 
 
-class VAE(nn.Module):
+class AutoEncoder(nn.Module):
     def __init__(self, latent_dim=512, input_height=32):
         super().__init__()
 
@@ -366,3 +366,85 @@ class VAE(nn.Module):
         x_hat = self.decode(z)
 
         return x_hat
+
+
+"""
+rawdata = np.load('character_font.npz')
+
+images = rawdata['images']
+labels = rawdata['labels']
+
+images = torch.FloatTensor(images).unsqueeze(1).repeat(1, 3, 1, 1)
+labels = torch.Tensor(labels)
+
+images /= 255
+
+print(images.shape, labels.shape)
+
+
+
+batch_size = 256
+learning_rate = 1e-4
+n_epochs = 10
+
+
+
+dataset = TensorDataset(images, labels)
+
+train_size = int(len(dataset) * 0.8)
+train_set, val_set = torch.utils.data.random_split(dataset, [train_size, len(dataset) - train_size])
+
+trainloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, pin_memory=True)
+valloader = DataLoader(val_set, batch_size=batch_size, shuffle=True, pin_memory=True)
+
+autoencoder = VAE().to(device)
+
+criterion = nn.L1Loss().to(device)
+
+optimizer = optim.Adam(autoencoder.parameters(), lr=learning_rate)
+
+
+
+for epoch in range(n_epochs):
+    if epoch == int(n_epochs * .5) or epoch == int(n_epochs * .75):
+        for g in optimizer.param_groups:
+            g['lr'] /= 10
+    
+    train_recon_error = []
+    val_recon_error = []
+
+    for data, _ in tqdm(trainloader):
+        data = data.to(device)
+
+        optimizer.zero_grad()
+
+        data_recon = autoencoder(data)
+        
+        recon_loss = criterion(data_recon, data)
+        
+        recon_loss.backward()
+
+        optimizer.step()
+
+        train_recon_error.append(recon_loss.item())
+       
+    with torch.no_grad():
+        for data, _ in tqdm(valloader):
+            data = data.to(device)
+
+            data_recon = autoencoder(data)
+
+            recon_loss = criterion(data_recon, data)
+
+            val_recon_error.append(recon_loss.item())
+
+    export_data = torch.cat((data[:40], data_recon[:40]), 0)
+    save_image(export_data, "autoencoder_results/recon_data_{}.png".format(epoch))
+    
+    print('epoch: %d' % epoch)
+    print('Train Recon Error: %.3f' % np.mean(train_recon_error))
+    print('Val Recon Error: %.3f' % np.mean(val_recon_error))
+    print()
+
+torch.save(autoencoder.state_dict(), "pretrained_autoencoder.pth")
+"""

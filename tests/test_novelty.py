@@ -45,10 +45,24 @@ loss = loss_function(points_vars)
 
 print(loss)
 """
-import numpy as np
-from vendi_score import vendi
+from PIL import Image
+from torchvision import transforms
 
-samples = [1, 2, 3, 4, 5, 6, 7]
-k = lambda a, b: np.exp(-np.abs(a - b))
+from losses import NoveltyLoss
 
-print(vendi.score(samples, k))
+loss_function = NoveltyLoss()
+
+img = Image.open("A.png").convert('RGB')
+img = transforms.ToTensor()(img).unsqueeze(0)
+
+img_2 = Image.open("new_A.jpg").convert('RGB')
+img_2 = transforms.ToTensor()(img_2).unsqueeze(0)
+
+out = loss_function(img)
+out_2 = loss_function(img_2)
+
+print(out, out_2)
+
+
+
+

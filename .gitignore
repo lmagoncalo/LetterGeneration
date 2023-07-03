@@ -1,0 +1,4 @@
+/generator/data/*
+/generator/datasets/*
+/generator/images/*
+*.npz

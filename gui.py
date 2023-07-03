@@ -1,7 +1,7 @@
 import random
 import string
 
-import numpy as np
+import clip
 import pydiffvg
 import streamlit as st
 import torch
@@ -10,10 +10,12 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from losses import *
+from render import SingleRender
 from utils import *
 
-losses_list = [AestheticLoss, CLIPSimilarityLoss, NoveltyLoss, XingLoss]
+losses_list = [AestheticLoss, CLIPSimilarityLoss, NoveltyLoss, ClassificationLoss, PerceptualLoss]
 
+letters = list(string.ascii_uppercase)
 
 transform = transforms.ToPILImage()
 
@@ -25,11 +27,14 @@ def run():
     progress_text = "Operation in progress. Please wait."
     progress_bar = st.progress(0., text=progress_text)
 
+    """
     losses = []
     for loss, loss_enable in zip(losses_list, losses_list_enable):
         if loss_enable:
-            if loss == CLIPSimilarityLoss:
+            if loss == CLIPSimilarityLoss or loss == PerceptualLoss:
                 l = loss(target_image)
+            elif loss == ClassificationLoss:
+                l = loss(letter=letter)
             else:
                 l = loss()
 
@@ -37,76 +42,56 @@ def run():
 
     if prompt is not None:
         losses.append(CLIPLoss(prompt))
+    """
 
-    shapes = []
-    shape_groups = []
-    colors = []
-    cell_size = int(img_size / 28)
-    for r in range(28):
-        cur_y = r * cell_size
-        for c in range(28):
-            cur_x = c * cell_size
-            p0 = [cur_x, cur_y]
-            p1 = [cur_x + cell_size, cur_y + cell_size]
+    model, preprocess = clip.load("ViT-B/32", device=device)
 
-            cell_color = torch.tensor([1.0, 1.0, 1.0, 1.0])
-            colors.append(cell_color)
+    loss_functions = [CLIPLoss(f"The letter {letters[i]}", model=model, preprocess=preprocess) for i in range(26)]
 
-            path = pydiffvg.Rect(p_min=torch.tensor(p0), p_max=torch.tensor(p1))
-            shapes.append(path)
-            path_group = pydiffvg.ShapeGroup(shape_ids=torch.tensor([len(shapes) - 1]), stroke_color=None,
-                                             fill_color=cell_color)
-            shape_groups.append(path_group)
-
-    color_vars = []
-    for group in shape_groups:
-        group.fill_color.requires_grad = True
-        color_vars.append(group.fill_color)
-
-    # Just some diffvg setup
-    scene_args = pydiffvg.RenderFunction.serialize_scene(img_size, img_size, shapes, shape_groups)
-    render = pydiffvg.RenderFunction.apply
-
-    # optims = [torch.optim.Adam(points_vars, lr=1.0)]
-    optims = [torch.optim.Adam(color_vars, lr=0.01)]
+    renders = [SingleRender(canvas_size=100) for _ in range(26)]
+    optims = [render.get_optim() for render in renders]
 
     for i in tqdm(range(iterations)):
-        img = render(img_size, img_size, 2, 2, 0, None, *scene_args)
-        img = img[:, :, 3:4] * img[:, :, :3] + torch.ones(img.shape[0], img.shape[1], 3,
-                                                          device=pydiffvg.get_device()) * (1 - img[:, :, 3:4])
-        img = img[:, :, :3]
-        img = img.unsqueeze(0)
-        img = img.permute(0, 3, 1, 2)  # NHWC -> NCHW
-
         for optim in optims:
-            optim.zero_grad()
+            if i == int(iterations * 0.5):
+                for g in optim.param_groups:
+                    g['lr'] /= 10
+            if i == int(iterations * 0.75):
+                for g in optim.param_groups:
+                    g['lr'] /= 10
 
-        loss_value = 0
-        for loss in losses:
-            loss_value += loss(img)
-        loss_value.backward()
+        display_imgs = []
+        for l in range(26):
+            img = renders[l].render()
 
-        for optim in optims:
-            optim.step()
-
-        # Clip values
-        # print(color_vars)
-        for group in shape_groups:
-            temp_color = torch.mean(group.fill_color.data[:-1])
-            # temp_color = torch.round(temp_color)
-            temp_color = temp_color.repeat(3)
-            group.fill_color.data = torch.cat((temp_color, torch.ones(1, requires_grad=True)))
-
-        if i % 10 == 0:
             display_img = img.squeeze()
             display_img = transform(display_img)
-            image_container.image(display_img)
+            display_imgs.append(display_img)
+
+            optims[l].zero_grad()
+
+            loss = loss_functions[l](img)
+
+            loss.backward()
+
+            optims[l].step()
+
+        if i % 10 == 0:
+            image_container.image(display_imgs, width=100)
 
         progress_value = map_value(i, 0, iterations, 0.0, 1.0)
         progress_bar.progress(progress_value, text=progress_text)
 
+        if i >= 30:
+            return
+
+    # pydiffvg.save_svg(f"{prompt}.svg", img_size, img_size, shapes, shape_groups)
+
+    # st.image(filteredImages, width=150)
+
+
 # Setup things
-st.set_page_config(page_title="Font Generation App", page_icon="🧊", initial_sidebar_state="expanded", )
+st.set_page_config(page_title="Font Generation App", page_icon="💤", initial_sidebar_state="expanded", )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -149,7 +134,7 @@ with st.sidebar:
             if losses_list_enable[l]:
                 losses_list_values[l] = st.slider(f'{loss.get_classname()} value', 0.0, 1.0, 0.0)
 
-                if loss == CLIPSimilarityLoss:
+                if loss == CLIPSimilarityLoss or loss == PerceptualLoss:
                     target_file = st.file_uploader("Choose the target image file", type=['png', 'jpg', 'jpeg'])
                     if target_file is not None:
                         target_image = Image.open(target_file)

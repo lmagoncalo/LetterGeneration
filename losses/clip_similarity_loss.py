@@ -110,6 +110,7 @@ class CLIPSimilarityLoss(nn.Module):
         self.img_size = clip_preprocess.transforms[1].size
         self.model.eval()
         self.target_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
         ])  # clip normalisation
         self.normalize_transform = transforms.Compose([
@@ -131,8 +132,9 @@ class CLIPSimilarityLoss(nn.Module):
         self.clip_conv_layer_dims = None  # self.args.clip_conv_layer_dims
         self.clip_fc_loss_weight = 0.1
 
-        self.target = target
-        self.target = transforms.ToTensor()(self.target)
+        # Transform — Transform PIL image to Tensor and resize and normalize
+        self.target = target.convert('RGB')
+        self.target = self.target_transform(self.target)
         self.target = self.target.unsqueeze(0)
         self.target = self.target.to(self.device)
 

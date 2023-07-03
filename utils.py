@@ -1,6 +1,15 @@
 import subprocess
 
+import PIL
+from torchvision import transforms
+
 clip_models_names = ['ViT-B/32', 'ViT-B/16']
+
+
+def to_tensor(image):
+    if type(image) == PIL.Image.Image:
+        return transforms.ToTensor()(image)
+    return image
 
 
 def wget_file(url, out):

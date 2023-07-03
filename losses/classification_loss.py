@@ -1,9 +1,14 @@
+import PIL
 import math
+import string
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
+from torchvision import transforms
+from torch.autograd import Variable
+
+from utils import to_tensor
 
 Half_width = 128
 layer_width = 128
@@ -100,7 +105,7 @@ class SpinalVGG(nn.Module):
 
 
 class ClassificationLoss(nn.Module):
-    def __init__(self, letter=0):
+    def __init__(self, letter="A"):
         super(ClassificationLoss, self).__init__()
         """load the classifier"""
         model_folder = "saves"
@@ -108,24 +113,36 @@ class ClassificationLoss(nn.Module):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.letter = letter
+        self.letter = string.ascii_uppercase.index(letter)
+        self.target = torch.tensor([self.letter], device=self.device)
+
+        self.transform = transforms.Compose([
+            transforms.Resize((64, 64)),
+            transforms.Lambda(to_tensor),  # Use ToTensor if image is PIL Image
+            transforms.Normalize((0.2557, 0.2557, 0.2557), (0.3432, 0.3432, 0.3432)),
+        ])
 
         self.m = SpinalVGG().to(self.device)
-        s = torch.load(path_to_model, map_location=self.device)
+        s = torch.load(path_to_model, map_location=torch.device('cpu'))
         self.m.load_state_dict(s)
         self.m.eval()
 
+        self.criterion = nn.NLLLoss().to(self.device)
+
     def forward(self, img):
+        img = self.transform(img)
         img = img.to(self.device)
 
-        # img = torchvision.transforms.functional.resize(img, (64, 64))
-        # img = torchvision.transforms.functional.invert(img)
+        if img.dim() != 4:
+            img = img.unsqueeze(0)
 
         result = self.m(img)
-        max_value, pos = torch.max(result, dim=1)
+        # max_value, pos = torch.max(result, dim=1)
+        # print(result)
 
-        # return self.m(img)[:, self.letter]
-        # return torch.sum(result)
+        out = self.criterion(result, self.target)
+
+        return out
 
     @classmethod
     def get_classname(cls):

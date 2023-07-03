@@ -112,9 +112,7 @@ class CLIPLoss(nn.Module):
             self.model = model
             self.preprocess = preprocess
 
-        self.prompts = prompts
-
-        text_inputs = clip.tokenize(self.prompts).to(self.device)
+        text_inputs = clip.tokenize(prompts).to(self.device)
 
         with torch.no_grad():
             self.text_features = self.model.encode_text(text_inputs)

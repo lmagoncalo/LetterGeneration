@@ -20,11 +20,19 @@ class PerceptualLoss(nn.Module):
 
         self.feature_extractor = PerceptualLoss._FeatureExtractor(pretrained, pre_relu).to(self.device)
 
-        self.resize = transforms.Resize((224, 224))
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        ])
 
-        self.target = Image.open(target)
-        self.target = self.resize(self.target)
-        self.target = transforms.ToTensor()(self.target)
+        self.resize = transforms.Compose([
+            transforms.Resize((224, 224)),
+        ])
+
+        # Transform — Transform PIL image to Tensor and resize and normalize
+        self.target = target.convert('RGB')
+        self.target = transform(self.target)
         self.target = self.target.unsqueeze(0)
         self.target = self.target.to(self.device)
 
