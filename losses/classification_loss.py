@@ -1,14 +1,9 @@
-import PIL
-import math
 import string
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms
-from torch.autograd import Variable
-
-from utils import to_tensor
 
 Half_width = 128
 layer_width = 128
@@ -105,44 +100,36 @@ class SpinalVGG(nn.Module):
 
 
 class ClassificationLoss(nn.Module):
-    def __init__(self, letter="A"):
+    def __init__(self, letter, num_cutouts, model_path="saves/letter_classifier.pth"):
         super(ClassificationLoss, self).__init__()
         """load the classifier"""
-        model_folder = "saves"
-        path_to_model = model_folder + "/letter_classifier.pth"
-
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.letter = string.ascii_uppercase.index(letter)
-        self.target = torch.tensor([self.letter], device=self.device)
+        self.image_target = 64
 
-        self.transform = transforms.Compose([
-            transforms.Resize((64, 64)),
-            transforms.Lambda(to_tensor),  # Use ToTensor if image is PIL Image
-            transforms.Normalize((0.2557, 0.2557, 0.2557), (0.3432, 0.3432, 0.3432)),
-        ])
+        self.letter = string.ascii_uppercase.index(letter)
+        self.target = torch.LongTensor([self.letter]).repeat(num_cutouts).to(self.device)
 
         self.m = SpinalVGG().to(self.device)
-        s = torch.load(path_to_model, map_location=torch.device('cpu'))
+        s = torch.load(model_path, map_location=self.device)
         self.m.load_state_dict(s)
-        self.m.eval()
+        # self.m.eval()
 
         self.criterion = nn.NLLLoss().to(self.device)
 
+        self.target_rating = torch.ones(size=(num_cutouts, 1)) * -1
+        self.target_rating = self.target_rating.to(self.device)
+
     def forward(self, img):
-        img = self.transform(img)
         img = img.to(self.device)
 
-        if img.dim() != 4:
-            img = img.unsqueeze(0)
-
         result = self.m(img)
-        # max_value, pos = torch.max(result, dim=1)
-        # print(result)
 
-        out = self.criterion(result, self.target)
+        nll_value = self.criterion(result, self.target)
 
-        return out
+        aes_loss = (nll_value - self.target_rating).square().mean()
+
+        return aes_loss
 
     @classmethod
     def get_classname(cls):

@@ -1,4 +1,10 @@
-/generator/data/*
-/generator/datasets/*
-/generator/images/*
+.idea/
+
+.DS_Store
+
+__pycache__/
+losses/__pycache__/
+
+results/*
+
 *.npz
