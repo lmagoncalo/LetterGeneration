@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 from losses import *
 from render import Render
-from utils import MakeCutouts
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -19,9 +18,9 @@ pydiffvg.set_device(device)
 img_size = 224
 num_iter = 1001
 seed = random.randint(0, 10000)
-prompt = "a bull"
+prompt = "a lion"
 # letters = list(string.ascii_uppercase)
-letter = "B"
+letter = "R"
 num_cutouts = 50
 
 random.seed(seed)
@@ -47,14 +46,16 @@ optim = render.get_optim()
 # loss_function = XingLoss()
 # loss_function = VendiLoss()
 
-tone_loss = ToneLoss()
-clip_loss = CLIPLoss(prompt, num_cutouts=num_cutouts)
-conformal_loss = ConformalLoss(parameters=render.points_vars, shape_groups=render.shape_groups)
+# tone_loss = ToneLoss()
+# clip_loss = CLIPLoss(prompt, num_cutouts=num_cutouts)
+# conformal_loss = ConformalLoss(parameters=render.points_vars, shape_groups=render.shape_groups, letter=letter)
+
+style_loss = StyleLoss()
 
 # mk = {64: MakeCutouts(cut_size=64, cutn=num_cutouts).to(device), 224: MakeCutouts(cut_size=224, cutn=num_cutouts).to(device)}
 
 print("Starting generating...")
-for i in tqdm(range(num_iter)):
+for i in range(num_iter):
     if i == int(num_iter * 0.5) or i == int(num_iter * 0.75):
         for g in optim.param_groups:
             g['lr'] /= 10
@@ -63,20 +64,28 @@ for i in tqdm(range(num_iter)):
 
     image = render.render()
 
+    """
     if i == 0:
         print("Tone Loss init image init")
         tone_loss.set_image_init(image)
 
     loss = clip_loss(image)
-
     tone_loss_res = tone_loss(image, i)
     loss_angles = conformal_loss()
-    loss = loss + tone_loss_res + loss_angles
+    loss = loss + tone_loss_res + (loss_angles * 0.5)
+    """
+
+    loss = style_loss(image)
 
     loss.backward()
 
     optim.step()
 
+    if i % 10 == 0:
+        print(f"{i}: {loss.item()}")
+
     if i % 100 == 0:
         # render.save_svg(f"results/letter_{i}_{letter}.svg")
         render.save_png(f"results/letter_{i}_{letter}.png")
+
+    # break

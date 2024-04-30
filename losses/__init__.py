@@ -6,3 +6,4 @@ from losses.perceptual_loss import PerceptualLoss
 from losses.novelty_loss import NoveltyLoss
 from losses.conformal_loss import ConformalLoss
 from losses.tone_loss import ToneLoss
+from losses.style_loss import StyleLoss

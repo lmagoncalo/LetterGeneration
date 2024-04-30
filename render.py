@@ -1,7 +1,7 @@
-import numpy as np
 import pydiffvg
 import torch
 from torch import nn
+from torchvision.utils import save_image
 
 
 class Render(nn.Module):
@@ -10,6 +10,7 @@ class Render(nn.Module):
 
         self.image_size = image_size
 
+        """
         # Use float32 or else they translate somehow
         # Round the points or else it raises an error
         points = torch.FloatTensor(np.load(f"data/{letter}.npy"))
@@ -39,6 +40,32 @@ class Render(nn.Module):
 
         polygon.points.requires_grad = True
         self.points_vars = [polygon.points]
+        """
+        canvas_width, canvas_height, shapes_init, shape_groups_init = pydiffvg.svg_to_scene(f"data/{letter}.svg")
+
+        self.shapes = shapes_init
+        self.shape_groups = shape_groups_init
+
+        max_x = 0
+        max_y = 0
+        for path in shapes_init:
+            if max_x < path.points[:, 0].max():
+                max_x = path.points[:, 0].max()
+            if max_y < path.points[:, 1].max():
+                max_y = path.points[:, 1].max()
+
+        self.points_vars = []
+        for path in shapes_init:
+            path.points[:, 0] /= max_x
+            path.points[:, 1] /= max_y
+
+            path.points *= (self.image_size * 0.7)
+
+            path.points += (self.image_size * 0.10)
+
+            path.points.requires_grad = True
+            self.points_vars.append(path.points)
+
 
     def get_optim(self):
         # Optimizers
@@ -76,6 +103,7 @@ class Render(nn.Module):
 
         return images
         """
+
         canvas_size = self.image_size
         render = pydiffvg.RenderFunction.apply
 
@@ -118,5 +146,12 @@ class Render(nn.Module):
         # Render the scene
         img = render(canvas_size, canvas_size, 2, 2, 0, None, *scene_args)
 
-        pydiffvg.imwrite(img.cpu(), path, gamma=1.0)
+        # Post-process the image
+        img = img[:, :, 3:4] * img[:, :, :3] + torch.ones(img.shape[0], img.shape[1], 3,
+                                                          device=pydiffvg.get_device()) * (1 - img[:, :, 3:4])
+        img = img[:, :, :3]
+        img = img.unsqueeze(0)
+        img = img.permute(0, 3, 1, 2)  # NHWC -> NCHW
+
+        save_image(img, path)
 

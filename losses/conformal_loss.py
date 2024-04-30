@@ -7,11 +7,11 @@ from shapely.geometry.polygon import Polygon
 
 
 class ConformalLoss:
-    def __init__(self, parameters, shape_groups):
+    def __init__(self, parameters, shape_groups, letter):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.parameters = parameters
-        self.target_letter = ["C"]
+        self.target_letter = [letter]
         self.shape_groups = shape_groups
         self.faces = self.init_faces(self.device)
         self.faces_roll_a = [torch.roll(self.faces[i], 1, 1) for i in range(len(self.faces))]

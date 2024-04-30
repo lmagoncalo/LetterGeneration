@@ -15,6 +15,13 @@ for c, char in enumerate(chars):
 
     face.load_char(char)
 
+    face.exportOutline("data/" + char + ".svg")
+
+    # face.save("data/" + char + ".svg")
+
+
+
+    """
     outline = face.glyph.outline
     points = outline.points
 
@@ -29,17 +36,4 @@ for c, char in enumerate(chars):
 
     np.save(f'data/{char}.npy', points)
 
-    """
-    # Separate x and y coordinates
-    x, y = zip(*points)
-    
-    # Plot the shape
-    plt.plot(x, y)
-
-    # Add text annotations to each point
-    for i, (xi, yi) in enumerate(outline.points):
-        plt.text(xi, yi, f'({i})', ha='right', va='bottom')
-
-    # Show the plot (optional)
-    plt.show()
     """
