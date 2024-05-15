@@ -50,7 +50,6 @@ class ConformalLoss:
             points_np = [self.parameters[i].clone().detach().cpu().numpy() for i in
                          range(len(self.parameters))]
             start_ind, end_ind, shapes_per_letter = self.get_letter_inds(c)
-            print(c, start_ind, end_ind)
             holes = []
             if shapes_per_letter > 1:
                 holes = points_np[start_ind + 1:end_ind]

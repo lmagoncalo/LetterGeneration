@@ -1,7 +1,18 @@
+import random
+
+import numpy as np
 import pydiffvg
 import torch
 from torch import nn
+from torch.nn import functional as F
 from torchvision.utils import save_image
+
+
+def rect_from_corners(p0, p1):
+    x1, y1 = p0
+    x2, y2 = p1
+    pts = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]
+    return pts
 
 
 class Render(nn.Module):
@@ -10,37 +21,6 @@ class Render(nn.Module):
 
         self.image_size = image_size
 
-        """
-        # Use float32 or else they translate somehow
-        # Round the points or else it raises an error
-        points = torch.FloatTensor(np.load(f"data/{letter}.npy"))
-        points = torch.cat((points, points[-1].view(1, 2)), dim=0)
-        points /= torch.max(points)
-        points *= (image_size * 0.9)
-        points += (image_size * 0.05)  # translate to center
-
-        # TODO - Augment number of points
-
-
-        # background shape
-        p0 = [0, 0]
-        p1 = [self.image_size, self.image_size]
-        background = pydiffvg.Rect(p_min=torch.tensor(p0), p_max=torch.tensor(p1))
-
-        num_control_points = torch.zeros(len(points) // 3, dtype=torch.int32) + 2
-
-        polygon = pydiffvg.Path(num_control_points=num_control_points, points=points, is_closed=True)
-
-        self.shapes = [background, polygon]
-
-        background_group = pydiffvg.ShapeGroup(shape_ids=torch.tensor([0]), fill_color=torch.tensor([0, 0, 0, 1]), stroke_color=None)
-        polygon_group = pydiffvg.ShapeGroup(shape_ids=torch.tensor([1]), fill_color=torch.tensor([1, 1, 1, 1]), stroke_color=None)
-
-        self.shape_groups = [background_group, polygon_group]
-
-        polygon.points.requires_grad = True
-        self.points_vars = [polygon.points]
-        """
         canvas_width, canvas_height, shapes_init, shape_groups_init = pydiffvg.svg_to_scene(f"data/{letter}.svg")
 
         self.shapes = shapes_init
@@ -66,10 +46,9 @@ class Render(nn.Module):
             path.points.requires_grad = True
             self.points_vars.append(path.points)
 
-
     def get_optim(self):
         # Optimizers
-        self.optim = torch.optim.Adam(self.points_vars, 1.0)
+        self.optim = torch.optim.Adam(self.points_vars, 0.5)
         return self.optim
 
     def render(self, sizes=None):
@@ -154,4 +133,5 @@ class Render(nn.Module):
         img = img.permute(0, 3, 1, 2)  # NHWC -> NCHW
 
         save_image(img, path)
+
 

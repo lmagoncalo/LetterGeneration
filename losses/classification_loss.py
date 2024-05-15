@@ -113,7 +113,7 @@ class ClassificationLoss(nn.Module):
         self.m = SpinalVGG().to(self.device)
         s = torch.load(model_path, map_location=self.device)
         self.m.load_state_dict(s)
-        # self.m.eval()
+        self.m.eval()
 
         self.criterion = nn.NLLLoss().to(self.device)
 

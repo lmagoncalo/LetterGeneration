@@ -7,6 +7,8 @@ from PIL import Image, ImageDraw, ImageFont
 from torchvision.utils import save_image
 from tqdm import tqdm
 
+# {'"SANS_SERIF"': 0, '"SERIF"': 1, '"DISPLAY"': 2, '"HANDWRITING"': 3, '"MONOSPACE"': 4}
+
 # Define the root directory where your font dataset is stored
 root_dir = "dataset/"
 
@@ -39,8 +41,6 @@ for category_folder in tqdm(os.listdir(root_dir)):
         if category not in class_label_mapping:
             label = len(class_label_mapping)
             class_label_mapping[category] = label
-            # Create a folder for the category
-            os.makedirs(os.path.join("images/", str(label)), exist_ok=True)
 
         class_label = class_label_mapping[category]
         # Find font files in the category folder
@@ -49,25 +49,25 @@ for category_folder in tqdm(os.listdir(root_dir)):
         for font_file in font_files:
             font_path = os.path.join(category_dir, font_file)
             try:
-                font = ImageFont.truetype(font_path, size=60)
+                font = ImageFont.truetype(font_path, size=90)
                 for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-                    img = Image.new('RGB', (64, 64), color='white')
+                    img = Image.new('RGB', (128, 128), color='white')
                     draw = ImageDraw.Draw(img)
-                    left, top, right, bottom = draw.textbbox((0, 0), letter, font=font)
-                    x = (64 - (right - left)) // 2
-                    y = (32 - (bottom - top)) // 2
+                    left, top, right, bottom = draw.textbbox((0, 0), letter, font=font, align="center")
+                    w = right - left
+                    h = bottom - top
+                    y = -top + (64 - (h // 2))
+                    x = -left + (64 - (w // 2))
                     draw.text((x, y), letter, fill='black', font=font)
-                    # img_tensor = TF.pil_to_tensor(img) / 255
-                    # img_np = img_tensor.numpy()
+                    img_tensor = TF.pil_to_tensor(img) / 255
+                    img_np = img_tensor.numpy()
                     # save_image(img_tensor, f"images/temp.png")
-                    img.save(f"images/{class_label}/{category_folder}_{letter}.png")
+                    # img.save(f"images/{class_label}/{category_folder}_{letter}.png")
                     # Append image and corresponding label to the data list
-                    # data.append((img_np, class_label))
+                    data.append((img_np, class_label))
             except Exception as e:
                 print(f"Error processing {font_path}: {e}")
 
-
-"""
 # Shuffle the data
 np.random.shuffle(data)
 
@@ -81,7 +81,7 @@ print(f"Number of labels: {len(labels)}, Shape: {labels.shape}")
 print(class_label_mapping)
 
 temp_images = torch.tensor(images[:16], dtype=torch.float)
-temp_images = temp_images.view(-1, 3, 64, 64)
+temp_images = temp_images.view(-1, 3, 128, 128)
 
 print(temp_images.shape)
 
@@ -89,4 +89,3 @@ save_image(temp_images, "images_end.png")
 
 # Save the data as a numpy file
 np.savez("font_data.npz", images=images, labels=labels)
-"""

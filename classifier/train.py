@@ -1,15 +1,12 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
-import numpy as np
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
+from torch.utils.data import DataLoader, TensorDataset
 from torchvision.models import *
 from tqdm import tqdm
 
-"""
 # Load data from the numpy file
 data = np.load("font_data.npz")
 images = data['images']
@@ -25,28 +22,10 @@ X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
 X_val_tensor = torch.tensor(X_val, dtype=torch.float32)
 y_train_tensor = torch.tensor(y_train, dtype=torch.long)
 y_val_tensor = torch.tensor(y_val, dtype=torch.long)
-"""
 
-transform = transforms.Compose([
-    transforms.CenterCrop(60),
-    transforms.Resize((64, 64)),
-    transforms.RandomRotation(10),
-    transforms.RandomAffine(5),
-    transforms.ToTensor(),
-    transforms.Normalize((0.5,), (0.5,)),
-])
-
-"""
 # Create PyTorch datasets
 train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
 val_dataset = TensorDataset(X_val_tensor, y_val_tensor)
-"""
-
-dataset = ImageFolder(root="images/", transform=transform)
-
-train_size = int(0.8 * len(dataset))
-val_size = int(len(dataset) - train_size)
-train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 
 # Define batch size
 batch_size = 64
@@ -60,12 +39,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize the model
 model = mobilenet_v2(weights=MobileNet_V2_Weights.IMAGENET1K_V2)  # Adjust num_classes as needed
-model.classifier[1] = torch.nn.Linear(in_features=model.classifier[1].in_features, out_features=10)
+model.classifier[1] = torch.nn.Linear(in_features=model.classifier[1].in_features, out_features=5)
 model.to(device)
 
 # Define loss function and optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-2)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 # Training loop
 num_epochs = 10

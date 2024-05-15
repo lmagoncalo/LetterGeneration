@@ -1,6 +1,6 @@
 import string
 
-import clip
+import font_clip
 import pydiffvg
 import streamlit as st
 import torch
@@ -21,7 +21,7 @@ def run():
     progress_text = "Operation in progress. Please wait."
     progress_bar = st.progress(0., text=progress_text)
 
-    model, preprocess = clip.load("ViT-B/32", device=device)
+    model, preprocess = font_clip.load("ViT-B/32", device=device)
 
     loss_functions = [CLIPLoss(f"The letter {letters[i]}", model=model, preprocess=preprocess) for i in range(26)]
 

@@ -1,6 +1,6 @@
 import random
 
-import clip
+import font_clip
 import numpy as np
 import pydiffvg
 import torch
@@ -15,7 +15,7 @@ print(device)
 pydiffvg.set_use_gpu(torch.cuda.is_available())
 pydiffvg.set_device(device)
 
-img_size = 224
+img_size = 128
 num_iter = 1001
 seed = random.randint(0, 10000)
 prompt = "a lion"
@@ -27,7 +27,7 @@ random.seed(seed)
 torch.manual_seed(seed)
 np.random.seed(seed)
 
-model, preprocess = clip.load("ViT-B/32", device=device)
+# model, preprocess = font_clip.load("ViT-B/32", device=device)
 
 # render = Render(canvas_size=img_size, letter="C")
 # render = CircleRender(canvas_size=img_size)
@@ -49,10 +49,8 @@ optim = render.get_optim()
 # tone_loss = ToneLoss()
 # clip_loss = CLIPLoss(prompt, num_cutouts=num_cutouts)
 # conformal_loss = ConformalLoss(parameters=render.points_vars, shape_groups=render.shape_groups, letter=letter)
-
-style_loss = StyleLoss()
-
-# mk = {64: MakeCutouts(cut_size=64, cutn=num_cutouts).to(device), 224: MakeCutouts(cut_size=224, cutn=num_cutouts).to(device)}
+# style_loss = StyleLoss()
+novelty_loss = NoveltyLoss()
 
 print("Starting generating...")
 for i in range(num_iter):
@@ -64,28 +62,28 @@ for i in range(num_iter):
 
     image = render.render()
 
-    """
-    if i == 0:
-        print("Tone Loss init image init")
-        tone_loss.set_image_init(image)
+    # if i == 0:
+    #     print("Tone Loss init image init")
+    #     tone_loss.set_image_init(image)
 
-    loss = clip_loss(image)
-    tone_loss_res = tone_loss(image, i)
-    loss_angles = conformal_loss()
-    loss = loss + tone_loss_res + (loss_angles * 0.5)
-    """
+    # loss = clip_loss(image)
+    # loss_style = style_loss(image)
+    # tone_loss_res = tone_loss(image, i)
+    # loss_angles = conformal_loss()
+    # loss = loss_style + (loss_angles * 0.5) + tone_loss_res
+    # loss = style_loss(image)
 
-    loss = style_loss(image)
+    loss = novelty_loss(image) * 0.1
+
+    print(loss.item())
 
     loss.backward()
 
     optim.step()
 
-    if i % 10 == 0:
-        print(f"{i}: {loss.item()}")
-
     if i % 100 == 0:
         # render.save_svg(f"results/letter_{i}_{letter}.svg")
         render.save_png(f"results/letter_{i}_{letter}.png")
+        print(loss.item())
 
     # break
